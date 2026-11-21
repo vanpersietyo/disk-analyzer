@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><title>Disk Analyzer</title>
+<style>
+:root{color-scheme:dark light;--bar:#3b82f6;--mut:#8888;--bd:#8883}
+*{box-sizing:border-box}
+body{margin:0;font:13px -apple-system,system-ui,sans-serif;display:flex;height:100vh}
+aside{width:260px;border-right:1px solid var(--bd);padding:12px;overflow:auto}
+main{flex:1;display:flex;flex-direction:column;min-width:0}
+h3{margin:0 0 8px;font-size:11px;text-transform:uppercase;color:var(--mut)}
+.vol{padding:8px;border-radius:8px;cursor:pointer;margin-bottom:4px}
+.vol:hover,.vol.on{background:#8882}
+.meter{height:5px;border-radius:3px;background:var(--bd);margin:6px 0 3px;overflow:hidden}
+.meter>i{display:block;height:100%;background:var(--bar)}
+.mut{color:var(--mut);font-size:11px}
+header{padding:10px 14px;border-bottom:1px solid var(--bd);display:flex;gap:8px;align-items:center}
+#crumb{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+button{font:inherit;padding:3px 10px;border-radius:6px;border:1px solid var(--bd);background:#8881;color:inherit;cursor:pointer}
+button.on{background:var(--bar);color:#fff;border-color:var(--bar)}
+#list{flex:1;overflow:auto}
+.row{position:relative;display:flex;gap:10px;padding:6px 14px;align-items:center;border-bottom:1px solid #8881}
+.row:hover{background:#8881}
+.row .fill{position:absolute;left:0;top:0;bottom:0;background:var(--bar);opacity:.15;z-index:-1}
+.row .n{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .n.dir{cursor:pointer;font-weight:600}
+.row .s{width:80px;text-align:right;font-variant-numeric:tabular-nums}
+#msg{padding:30px;text-align:center;color:var(--mut)}
+button.del{color:#ef4444;border-color:#ef444466}
+#types{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 14px;border-bottom:1px solid var(--bd)}
+#chips{display:contents}
+#ext{font:inherit;width:130px;padding:2px 8px;border-radius:6px;border:1px solid var(--bd);background:#8881;color:inherit}
+.chip{padding:1px 9px;border-radius:99px}
+.info{color:var(--mut);font-size:11px}
+.bar{display:flex;gap:10px;align-items:center;padding:6px 14px;position:sticky;top:0;z-index:1;background:Canvas;border-bottom:1px solid var(--bd)}
+.row.sel{background:#3b82f61f}
+.pstats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:10px 14px}
+.card{border:1px solid var(--bd);border-radius:8px;padding:8px 10px}
+.card b{display:block;font-size:15px;margin-top:2px}
+.meter.hot>i{background:#ef4444}
+.aapp{flex:none;width:140px;display:flex;gap:6px;align-items:center;overflow:hidden;font-size:12px}
+.aapp img{width:18px;height:18px;flex:none}
+.aapp span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tag{flex:none;width:46px;text-align:center;font-size:10px;padding:1px 0;border-radius:4px}
+.tag.sistem{background:#8883;color:var(--mut)}
+.tag.app{background:#3b82f633;color:light-dark(#1d4ed8,#60a5fa)}
+.tag.tool{background:#22c55e33;color:light-dark(#15803d,#4ade80)}
+.ptools{flex-wrap:wrap}
+#pf{min-width:140px}
+#sysl{margin-left:auto;display:flex;gap:5px;align-items:center;font-size:12px;cursor:pointer}
+.ptools{display:flex;gap:8px;align-items:center;padding:4px 14px 8px;position:sticky;top:0;z-index:1;background:Canvas}
+#pf{font:inherit;flex:1;padding:3px 8px;border-radius:6px;border:1px solid var(--bd);background:#8881;color:inherit}
+.row input[type=checkbox],.bar input[type=checkbox]{margin:0}
+#q{font:inherit;width:220px;padding:3px 8px;border-radius:6px;border:1px solid var(--bd);background:#8881;color:inherit}
+#modal{position:fixed;inset:0;background:#0009;display:none;align-items:center;justify-content:center}
+#modal.show{display:flex}
+#box{background:Canvas;border:1px solid var(--bd);border-radius:12px;padding:20px;width:480px;max-width:90vw}
+#box h2{margin:0 0 10px;font-size:15px}
+#box code{display:block;word-break:break-all;background:#8882;padding:8px;border-radius:6px;margin:8px 0}
+#box .warn{color:#f59e0b;margin:8px 0}
+#box .err{color:#ef4444;margin:8px 0}
+#box .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+button.danger{background:#ef4444;border-color:#ef4444;color:#fff}
+button:disabled{opacity:.5}
+</style></head><body>
+<aside><h3>Hardisk</h3><div id="vols"></div></aside>
+<main>
+<header><button id="up">↑</button><div id="crumb">Pilih hardisk di kiri</div>
+<input id="q" type="search" placeholder="Cari nama file… (Enter)" spellcheck="false">
+<button id="tabF" class="on">Folder</button><button id="tabB">File terbesar</button><button id="tabP">Performa</button><button id="theme" title="Ganti tema"></button></header>
+<div id="types"><span class="mut">Tipe:</span><span id="chips"></span>
+<input id="ext" placeholder="csv, mp4, …" spellcheck="false">
+<label id="sysl" title="Sembunyikan /System, /usr, /bin, /sbin, /etc, /var/db, /var/vm, file com.apple.*, Keychains, Mail, Messages, Safari. File ini juga tidak pernah bisa dihapus dari app ini."><input type="checkbox" id="hidesys"> Sembunyikan file sistem macOS</label></div>
+<div id="list"><div id="msg">Klik hardisk untuk mulai analisa.</div></div>
+</main>
+<div id="modal"><div id="box"></div></div>
+<script>
+const { invoke } = window.__TAURI__.core;
+const $ = id => document.getElementById(id);
+const fmt = n => { const u=['B','KB','MB','GB','TB']; let i=0; while(n>=1000&&i<4){n/=1000;i++} return n.toFixed(i?1:0)+' '+u[i]; };
+let cur=null, root=null, report=null, found=null, tab='f';
+const sel=new Set(); // selected paths for bulk delete; cleared whenever the list changes
+
+let perf=null, perfTimer=null, psort='mem', pgroup=false, pkind='user'; // pkind: user = app+tool, hides macOS/system
+
+function setTab(t){
+  const was=tab; tab=t; sel.clear();
+  for(const [id,k] of [['tabF','f'],['tabB','b'],['tabP','p']]) $(id).className=t===k?'on':'';
+  $('q').style.display=$('types').style.display=t==='p'?'none':'';
+  $('crumb').textContent=t==='p'?'Performa sistem':(cur||'Pilih hardisk di kiri');
+  if(t==='p'&&was!=='p') startPerf(); else if(t!=='p') stopPerf();
+}
+
+function idle(){ const l=$('list'); l.replaceChildren(el('div',null,'Klik hardisk untuk mulai analisa.')); l.firstChild.id='msg'; }
+
+// The #ext text box is the single source of truth for the type filter; chips just add/remove tokens in it.
+const PRESETS=['mp4','mov','csv','sql','pdf','png','jpg','zip','dmg','log','json','pkg'];
+const exts=()=>$('ext').value.split(/[\s,]+/).map(s=>s.replace(/^\./,'').toLowerCase()).filter(Boolean);
+function syncChips(){ const x=exts(); document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',x.includes(c.textContent))); }
+for(const p of PRESETS){
+  const c=el('button','chip',p);
+  c.onclick=()=>{ const x=exts(), i=x.indexOf(p); i<0?x.push(p):x.splice(i,1); $('ext').value=x.join(', '); syncChips(); search(); };
+  $('chips').append(c);
+}
+
+async function search(){
+  const q=$('q').value.trim(), x=exts();
+  if(!cur) return;
+  if(!q&&!x.length){ found=null; setTab('f'); report&&render(); return; }
+  setTab('s');
+  const list=$('list');
+  list.replaceChildren(el('div',null,`Mencari ${q?`"${q}" `:''}${x.length?`[${x.join(', ')}] `:''}di ${cur}…`)); list.firstChild.id='msg';
+  try{ found=await invoke('search',{path:cur,query:q,exts:x,hideSystem:$('hidesys').checked}); render(); }
+  catch(e){ list.firstChild.textContent='Gagal: '+e; }
+}
+
+function el(tag, cls, text){ const e=document.createElement(tag); if(cls)e.className=cls; if(text!=null)e.textContent=text; return e; }
+
+async function loadVolumes(){
+  const box=$('vols'); box.replaceChildren();
+  for(const v of await invoke('volumes')){
+    const used=v.total-v.free, d=el('div','vol');
+    d.append(el('b',null,v.name||v.mount));
+    const m=el('div','meter'), i=el('i'); i.style.width=(used/v.total*100)+'%'; m.append(i); d.append(m);
+    d.append(el('div','mut',`${fmt(used)} terpakai · ${fmt(v.free)} bebas dari ${fmt(v.total)}`));
+    d.onclick=()=>{ document.querySelectorAll('.vol').forEach(x=>x.classList.remove('on')); d.classList.add('on'); root=v.mount; scan(v.mount); };
+    box.append(d);
+  }
+}
+
+async function scan(path){
+  if(tab==='p') setTab('f');
+  cur=path; $('crumb').textContent=path; found=null; sel.clear(); $('q').value=''; $('ext').value=''; syncChips();
+  $('list').replaceChildren(el('div',null,'')); $('list').firstChild.id='msg'; $('list').firstChild.textContent='Memindai… (disk besar bisa makan beberapa menit)';
+  try{ report=await invoke('analyze',{path,hideSystem:$('hidesys').checked}); render(); }
+  catch(e){ $('list').firstChild.textContent='Gagal: '+e; }
+}
+
+function render(){
+  const list=$('list'); list.replaceChildren();
+  const rows = tab==='s' ? found.map(b=>({name:b.path,path:b.path,size:b.size,dir:false,system:b.system}))
+             : tab==='f' ? report.entries.map(e=>({name:e.name,path:e.path,size:e.size,dir:e.is_dir,system:e.system}))
+                         : report.largest.map(b=>({name:b.path,path:b.path,size:b.size,dir:false,system:b.system}));
+  const free=rows.filter(r=>!r.system); // macOS-owned rows (shown only when the hide filter is off) can't be selected or deleted
+  const max=rows[0]?.size||1, total=rows.reduce((a,r)=>a+r.size,0);
+  const bar=el('div','bar'), all=el('input'), info=el('span','info'), bulk=el('button','del','Hapus terpilih');
+  all.type='checkbox'; bulk.style.marginLeft='auto';
+  const checks=[];
+  const upd=()=>{
+    const ch=free.filter(r=>sel.has(r.path));
+    all.checked=ch.length>0&&ch.length===free.length; all.indeterminate=ch.length>0&&ch.length<free.length;
+    bulk.disabled=!ch.length; bulk.textContent=ch.length?`Hapus ${ch.length} terpilih`:'Hapus terpilih';
+    info.textContent=`${rows.length} ${tab==='s'?'file':'item'}${tab==='s'&&rows.length>=300?' (dibatasi 300 terbesar)':''} · ${fmt(total)}`+(rows.length>free.length?` · ${rows.length-free.length} sistem macOS (dilindungi)`:'')+(ch.length?` · dipilih ${fmt(ch.reduce((a,r)=>a+r.size,0))}`:'');
+    for(const [c,r,row] of checks){ c.checked=sel.has(r.path); row.classList.toggle('sel',c.checked); }
+  };
+  all.onchange=()=>{ free.forEach(r=>all.checked?sel.add(r.path):sel.delete(r.path)); upd(); };
+  bulk.onclick=()=>confirmDelete(rows.filter(r=>sel.has(r.path)));
+  bar.append(all,info,bulk);
+  if(rows.length) list.append(bar);
+  if(!rows.length) list.append(el('div',null,tab==='s'?'Tidak ada file yang cocok.':'Kosong atau tidak bisa dibaca.')).id='msg';
+  let last=-1; const slots=[];
+  for(const [i,r] of rows.entries()){
+    const row=el('div','row'), f=el('i','fill'); f.style.width=(r.size/max*100)+'%'; row.append(f);
+    const c=el('input'); c.type='checkbox';
+    // Shift-click selects the whole range from the last clicked row.
+    c.onclick=e=>{ if(e.shiftKey&&last>=0){ for(let k=Math.min(last,i);k<=Math.max(last,i);k++) if(!rows[k].system) c.checked?sel.add(rows[k].path):sel.delete(rows[k].path); } last=i; };
+    c.onchange=()=>{ c.checked?sel.add(r.path):sel.delete(r.path); upd(); };
+    checks.push([c,r,row]); row.append(c);
+    if(r.system){ c.disabled=true; row.append(el('span','tag sistem','macOS')); }
+    const ap=el('span','aapp'); row.append(ap); slots.push([ap,r.path]); // filled in by fillApps()
+    const n=el('span','n'+(r.dir?' dir':''),(r.dir?'📁 ':'')+r.name); n.title=r.path;
+    if(r.dir) n.onclick=()=>{setTab('f');scan(r.path)};
+    row.append(n, el('span','s',fmt(r.size)));
+    const b=el('button',null,'Finder'); b.onclick=()=>invoke('reveal',{path:r.path}); row.append(b);
+    const d=el('button','del','Hapus'); d.onclick=()=>confirmDelete([r]); row.append(d);
+    if(r.system){ d.disabled=true; d.title='File sistem macOS dilindungi dan tidak bisa dihapus dari sini'; }
+    list.append(row);
+  }
+  upd();
+  fillApps(slots);
+}
+
+// Owning app (name + logo) per path, resolved in Rust; cached so re-renders don't ask again.
+const appCache=new Map();
+async function fillApps(slots){
+  const todo=[...new Set(slots.map(s=>s[1]).filter(p=>!appCache.has(p)))];
+  if(todo.length){
+    try{ const res=await invoke('app_info',{paths:todo}); todo.forEach((p,i)=>appCache.set(p,res[i])); }
+    catch(e){ return; }
+  }
+  for(const [ap,p] of slots){
+    const a=appCache.get(p);
+    if(!a||!ap.isConnected) continue; // not an app file, or the list was re-rendered meanwhile
+    if(a.icon){ const im=el('img'); im.src=a.icon; ap.append(im); }
+    ap.append(el('span',null,a.name)); ap.title=a.name;
+  }
+}
+
+// Paths that are live app data: deleting them breaks the app, so the dialog warns louder.
+const RISKY=/OrbStack|docker|\.sqlite|\.db$|\.ibd|\.raw$|sleepimage|\.claude-mem|Group Containers|\/Library\/(Containers|Application Support)/i;
+
+function confirmDelete(items){
+  if(!items.length) return;
+  const n=items.length, total=items.reduce((a,r)=>a+r.size,0), dirs=items.filter(r=>r.dir).length;
+  const box=$('box'); box.replaceChildren();
+  if(n===1){
+    const r=items[0];
+    box.append(el('h2',null,`Hapus ${r.dir?'folder':'file'} ini secara permanen?`), el('code',null,r.path),
+      el('div',null,`Ukuran: ${fmt(r.size)}${r.dir?' (beserta seluruh isinya)':''}`));
+  }else{
+    const code=el('code',null,items.slice(0,8).map(r=>r.path).join('\n')+(n>8?`\n… dan ${n-8} lainnya`:''));
+    code.style.whiteSpace='pre-wrap'; code.style.maxHeight='200px'; code.style.overflow='auto';
+    box.append(el('h2',null,`Hapus ${n} item secara permanen?`), code,
+      el('div',null,`Total: ${fmt(total)}${dirs?` · ${dirs} folder (beserta seluruh isinya)`:''}`));
+  }
+  box.append(el('div','warn','Tidak masuk Sampah dan tidak bisa dibatalkan.'));
+  const risky=items.filter(r=>RISKY.test(r.path)).length;
+  if(risky) box.append(el('div','warn',`⚠ ${n===1?'Ini':risky+' item'} kemungkinan data aplikasi (database, VM, container). Menghapusnya bisa merusak aplikasi atau menghilangkan data. Pastikan kamu tahu apa ini.`));
+  const err=el('div','err'), btns=el('div','btns');
+  const no=el('button',null,'Batal'), yes=el('button','danger','Hapus permanen');
+  no.onclick=()=>$('modal').classList.remove('show');
+  yes.onclick=async()=>{
+    yes.disabled=no.disabled=true; err.textContent='';
+    const done=[], failed=[];
+    for(const [i,r] of items.entries()){
+      yes.textContent=`Menghapus ${i+1}/${n}…`;
+      try{ await invoke('delete_path',{path:r.path}); done.push(r); }
+      catch(e){ /os error 2/.test(e) ? done.push(r) : failed.push(`${r.path}: ${e}`); } // already gone counts as deleted
+    }
+    const gone=p=>done.some(r=>p===r.path||p.startsWith(r.path+'/'));
+    report.entries=report.entries.filter(e=>!gone(e.path));
+    report.largest=report.largest.filter(b=>!gone(b.path));
+    if(found) found=found.filter(b=>!gone(b.path));
+    done.forEach(r=>sel.delete(r.path));
+    render(); loadVolumes();
+    if(!failed.length){ $('modal').classList.remove('show'); return; }
+    err.textContent=`Gagal menghapus ${failed.length} dari ${n}:\n`+failed.slice(0,5).join('\n');
+    err.style.whiteSpace='pre-wrap'; no.disabled=false; no.textContent='Tutup'; yes.remove();
+  };
+  btns.append(no,yes); box.append(err,btns); $('modal').classList.add('show');
+}
+// ---- Performa: live system stats + process list with kill ----
+const TAGS={sistem:'Sistem',app:'App',tool:'Tool'};
+const BUSY=/claude|Orca|OrbStack|Docker|mysql|postgres|redis|rabbit|minio|disk-analyzer/i;
+
+async function tickPerf(){
+  if(tab!=='p') return;
+  try{ perf=await invoke('perf'); drawPerf(); }
+  catch(e){ const b=$('pbody'); if(b) b.textContent='Gagal: '+e; }
+}
+
+function startPerf(){
+  const list=$('list'); list.replaceChildren();
+  const stats=el('div','pstats'); stats.id='pstats';
+  const bM=el('button',null,'Memori'), bC=el('button',null,'CPU'), bG=el('button',null,'Gabung per nama');
+  const KINDS=[['user','App & tool'],['app','App'],['tool','Tool'],['sistem','Sistem'],['all','Semua']];
+  const kb=KINDS.map(([k,l])=>{ const b=el('button',null,l); b.onclick=()=>{pkind=k;sync();drawPerf()}; return b; });
+  const sync=()=>{
+    bM.className=psort==='mem'?'on':''; bC.className=psort==='cpu'?'on':''; bG.className=pgroup?'on':'';
+    kb.forEach((b,i)=>b.className=KINDS[i][0]===pkind?'on':'');
+  };
+  bM.onclick=()=>{psort='mem';sync();drawPerf()}; bC.onclick=()=>{psort='cpu';sync();drawPerf()}; bG.onclick=()=>{pgroup=!pgroup;sync();drawPerf()};
+  sync();
+  const f=el('input'); f.id='pf'; f.placeholder='Filter proses…'; f.spellcheck=false; f.oninput=drawPerf;
+  const tools=el('div','ptools'); tools.append(el('span','mut','Tampil:'),...kb,el('span','mut','Urut:'),bM,bC,bG,f);
+  const body=el('div'); body.id='pbody';
+  const note=el('div','info','CPU: 100% = satu core penuh. Memori = RSS (resident); memori yang sudah dikompresi atau ditukar ke swap tidak terhitung, jadi bisa lebih kecil dari Activity Monitor.');
+  note.style.padding='8px 14px';
+  list.append(stats,tools,body,note);
+  tickPerf(); setTimeout(tickPerf,700); // CPU is a delta, so the first sample reads 0; resample quickly
+  perfTimer=setInterval(tickPerf,2000);
+}
+function stopPerf(){ clearInterval(perfTimer); perfTimer=null; }
+
+function drawPerf(){
+  const d=perf, body=$('pbody'); if(!d||!body||tab!=='p') return;
+  const card=(t,v,sub,pct)=>{
+    const c=el('div','card'), m=el('div','meter'+(pct>85?' hot':'')), i=el('i'); i.style.width=Math.min(pct,100)+'%'; m.append(i);
+    c.append(el('div','mut',t),el('b',null,v),m,el('div','mut',sub)); return c;
+  };
+  $('pstats').replaceChildren(
+    card('CPU',d.cpu.toFixed(0)+'%',`${d.cores} core`,d.cpu),
+    card('RAM',`${fmt(d.mem_used)} / ${fmt(d.mem_total)}`,'terpakai',d.mem_used/d.mem_total*100),
+    card('Swap',`${fmt(d.swap_used)} / ${fmt(d.swap_total)}`,'terpakai',d.swap_total?d.swap_used/d.swap_total*100:0),
+    card('Load average',d.load.map(x=>x.toFixed(1)).join(' · '),'1 / 5 / 15 menit',d.load[0]/d.cores*100));
+
+  const q=($('pf').value||'').toLowerCase();
+  const kindOk=k=>pkind==='all'||(pkind==='user'?k!=='sistem':k===pkind);
+  const ps=d.procs.filter(p=>kindOk(p.kind)&&(!q||p.name.toLowerCase().includes(q)||p.cmd.toLowerCase().includes(q)));
+  let rows;
+  if(pgroup){
+    // Group by kind+name so a protected system process never ends up in a killable group.
+    const g=new Map();
+    for(const p of ps){ const key=p.kind+'|'+p.name; const r=g.get(key)||{name:p.name,kind:p.kind,procs:[],cpu:0,mem:0}; r.procs.push(p); r.cpu+=p.cpu; r.mem+=p.mem; g.set(key,r); }
+    rows=[...g.values()];
+  }else rows=ps.map(p=>({name:p.name,kind:p.kind,procs:[p],cpu:p.cpu,mem:p.mem}));
+  rows.sort((a,b)=>b[psort]-a[psort]); rows=rows.slice(0,80);
+  const max=rows[0]?.[psort]||1;
+  body.replaceChildren(...rows.map(r=>{
+    const row=el('div','row'), f=el('i','fill'); f.style.width=(r[psort]/max*100)+'%'; row.append(f);
+    const one=r.procs.length===1, p0=r.procs[0];
+    row.append(el('span','tag '+r.kind,TAGS[r.kind]));
+    const n=el('span','n'); n.title=one?`PID ${p0.pid}\n${p0.cmd}`:r.procs.map(p=>p.pid).join(', ');
+    // Bare names like "node" say nothing, so show the command (directories stripped) next to it.
+    n.append(one?r.name:`${r.name} ×${r.procs.length}`);
+    if(one&&p0.cmd) n.append(el('span','mut','  '+p0.cmd.replace(/(?:[^\s/]+\/)+/g,'')));
+    const pid=el('span','s',one?String(p0.pid):''); pid.style.width='60px'; pid.className+=' mut';
+    row.append(n,pid,el('span','s',r.cpu.toFixed(0)+'%'),el('span','s',fmt(r.mem)));
+    const t=el('button',null,'Tutup'), k=el('button','del','Paksa');
+    t.title='Kirim SIGTERM (minta berhenti dengan sopan)'; k.title='Kirim SIGKILL (langsung dimatikan)';
+    t.onclick=()=>confirmKill(r,false); k.onclick=()=>confirmKill(r,true);
+    if(r.kind==='sistem'){ t.disabled=k.disabled=true; t.title=k.title='Proses bawaan macOS/sistem dilindungi dan tidak bisa dihentikan dari sini'; }
+    row.append(t,k); return row;
+  }));
+}
+
+function confirmKill(r,force){
+  const ps=r.procs, box=$('box'); box.replaceChildren();
+  const label=ps.length===1?`${r.name} (PID ${ps[0].pid})`:`${r.name} ×${ps.length}`;
+  box.append(el('h2',null,`${force?'Matikan paksa':'Tutup'} ${label}?`));
+  const code=el('code',null,ps.slice(0,6).map(p=>`${p.pid}  ${p.cmd||p.name}`).join('\n')+(ps.length>6?`\n… dan ${ps.length-6} lainnya`:''));
+  code.style.whiteSpace='pre-wrap'; code.style.maxHeight='160px'; code.style.overflow='auto';
+  box.append(code,el('div',null,`Memori: ${fmt(r.mem)} · CPU: ${r.cpu.toFixed(0)}%`),
+    el('div','warn',force?'Dimatikan langsung (SIGKILL). Pekerjaan yang belum disimpan di proses itu hilang.'
+                         :'Dikirim permintaan berhenti (SIGTERM). Proses bisa menyimpan dulu, tapi bisa juga mengabaikannya.'));
+  if(BUSY.test(r.name+' '+ps.map(p=>p.cmd).join(' '))) box.append(el('div','warn','⚠ Ini kemungkinan app, sesi, atau database yang sedang aktif (mis. sesi Claude Code, Orca, OrbStack). Menghentikannya bisa memutus pekerjaan yang sedang berjalan.'));
+  const err=el('div','err'), btns=el('div','btns');
+  const no=el('button',null,'Batal'), yes=el('button','danger',force?'Matikan paksa':'Tutup proses');
+  no.onclick=()=>$('modal').classList.remove('show');
+  yes.onclick=async()=>{
+    yes.disabled=no.disabled=true; err.textContent='';
+    const failed=[];
+    for(const [i,p] of ps.entries()){
+      yes.textContent=`Mengirim ${i+1}/${ps.length}…`;
+      try{ await invoke('kill_process',{pid:p.pid,force}); }catch(e){ failed.push(`${p.pid}: ${e}`); }
+    }
+    setTimeout(tickPerf,500);
+    if(!failed.length){ $('modal').classList.remove('show'); return; }
+    err.textContent=`Gagal ${failed.length} dari ${ps.length}:\n`+failed.slice(0,5).join('\n');
+    err.style.whiteSpace='pre-wrap'; no.disabled=false; no.textContent='Tutup'; yes.remove();
+  };
+  btns.append(no,yes); box.append(err,btns); $('modal').classList.add('show');
+}
+
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') $('modal').classList.remove('show'); });
+
+$('up').onclick=()=>{ if(cur&&cur!==root){ scan(cur.replace(/\/[^/]+\/?$/,'')||'/'); } };
+$('tabF').onclick=()=>{setTab('f');report?render():idle()};
+$('tabB').onclick=()=>{setTab('b');report?render():idle()};
+$('tabP').onclick=()=>setTab('p');
+
+// Theme: auto (follow macOS) -> light -> dark; remembered between launches.
+const THEMES=[['auto','◐ Auto'],['light','☀ Terang'],['dark','☾ Gelap']];
+let theme=localStorage.getItem('theme'); if(!THEMES.some(x=>x[0]===theme)) theme='auto';
+function applyTheme(){
+  document.documentElement.style.colorScheme=theme==='auto'?'dark light':theme;
+  $('theme').textContent=THEMES.find(x=>x[0]===theme)[1];
+  invoke('set_theme',{theme}).catch(()=>{});
+}
+$('theme').onclick=()=>{ theme=THEMES[(THEMES.findIndex(x=>x[0]===theme)+1)%THEMES.length][0]; localStorage.setItem('theme',theme); applyTheme(); };
+applyTheme();
+$('q').onkeydown=e=>{ if(e.key==='Enter') search(); };
+$('ext').onkeydown=e=>{ if(e.key==='Enter') search(); };
+$('ext').oninput=syncChips;
+// On by default; the backend skips macOS-owned paths while scanning, so changing it needs a rescan.
+$('hidesys').checked=localStorage.getItem('hidesys')!=='0';
+$('hidesys').onchange=()=>{
+  localStorage.setItem('hidesys',$('hidesys').checked?'1':'0');
+  if(tab==='s') search(); else if(cur) scan(cur);
+};
+loadVolumes();
+</script></body></html>

@@ -1,0 +1,16 @@
+[package]
+name = "disk-analyzer"
+version = "0.1.0"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+walkdir = "2"
+rayon = "1"
+sysinfo = "0.33"
+plist = "1"
+base64 = "0.21"
